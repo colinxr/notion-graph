@@ -8,14 +8,14 @@ datasource db {
 }
 
 model Note {
-  id          String   @id @default(cuid())
-  title       String
-  content     String
-  tags        Tag[]
-  references  Note[]   @relation("NoteReferences")
-  referencedBy Note[]  @relation("NoteReferences")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  notionId     String?  @unique
+  title        String
+  tags         Tag[]
+  references   Note[]   @relation("NoteReferences")
+  referencedBy Note[]   @relation("NoteReferences")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Tag {
@@ -28,9 +28,17 @@ model Tag {
 
 model Settings {
   id                String   @id @default(cuid())
-  notionApiKey     String
-  notionDatabaseId String
+  notionApiKey      String
+  notionDatabaseId  String
   notionDatabaseUrl String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-} 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  pageId    String   @unique
+  status    String   @default("pending") // e.g., "pending", "processed", "failed"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
