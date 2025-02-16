@@ -7,7 +7,7 @@ import { SyncButton } from '@/components/SyncButton'
 
 export default async function HomePage() {
   const settings = await SettingsService.getSettings()
-  console.log(settings)
+  // console.log(settings)
   const isConfigured = !!settings?.notionApiKey
   const recentPages = isConfigured ? await NotionService.getRecentPages() : []
 
@@ -59,25 +59,26 @@ export default async function HomePage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  { recentPages?.map(page => (
-                    ''
-                    
-                    // <div key={page.id} className="flex justify-between items-center border-b pb-2">
-                    //   <div>
-                    //     <a 
-                    //       href={page.url} 
-                    //       target="_blank" 
-                    //       rel="noopener noreferrer"
-                    //       className="text-sm font-medium hover:underline"
-                    //     >
-                    //       {page.title}
-                    //     </a>
-                    //     <p className="text-xs text-muted-foreground">
-                    //       Last edited: {new Date(page.lastEdited).toLocaleDateString()}
-                    //     </p>
-                    //   </div>
-                    // </div>
-                  ))}
+                  { recentPages?.map(page => {
+                    console.log(page)
+                  return (
+                    <div key={page.id} className="flex justify-between items-center border-b pb-2">
+                      <div>
+                        <a 
+                          href={page.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium hover:underline"
+                        >
+                          {page.title}
+                        </a>
+                        <p className="text-xs text-muted-foreground">
+                          Last edited: {new Date(page.lastEdited).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
                 </div>
               </CardContent>
             </Card>
