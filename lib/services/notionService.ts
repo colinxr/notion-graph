@@ -2,15 +2,17 @@ import { Client } from '@notionhq/client'
 import type { PageObjectResponse, BlockObjectResponse } from '@notionhq/client/build/src/api-endpoints'
 import { SettingsService } from './settingsService'
 
+interface NotionLink {
+  type: string
+  content: string
+}
+
 export interface NotionPage {
   id: string
   title: string
   url: string
   lastEdited: string
-  links: {
-    type: string
-    content: string
-  }[]
+  links: NotionLink[]
 }
 
 export class NotionService {
@@ -22,74 +24,72 @@ export class NotionService {
     return new Client({ auth: settings.notionApiKey })
   }
 
-  private static async getLinks(pageId: string) {
+  private static async validateDatabaseAccess() {
+    const settings = await SettingsService.getSettings()
+    if (!settings?.notionDatabaseId) {
+      throw new Error('Notion database ID not found')
+    }
+    return settings.notionDatabaseId
+  }
+
+  private static extractPageData(page: PageObjectResponse): Omit<NotionPage, 'links'> {
+    return {
+      id: page.id,
+      title: (page.properties.Name as any)?.title?.[0]?.plain_text || 'Untitled',
+      url: page.url,
+      lastEdited: page.last_edited_time,
+    }
+  }
+
+  private static async extractLinksFromPage(pageId: string): Promise<NotionLink[]> {
     const notion = await this.getClient()
-    const blocks = await notion.blocks.children.list({ block_id: pageId })
+    const { results } = await notion.blocks.children.list({ block_id: pageId })
     
-    return blocks.results.reduce<Array<{ type: string; content: string }>>((acc, block) => {
+    return results.reduce<NotionLink[]>((links, block) => {
       const blockObject = block as BlockObjectResponse
       if (blockObject.type === 'paragraph') {
         const richText = blockObject.paragraph.rich_text[0]
         if (richText?.type === 'mention') {
-          acc.push({
+          links.push({
             type: 'mention',
             content: richText.href || ''
           })
         }
       }
-      return acc
+      return links
     }, [])
   }
 
   static async getRecentPages(limit = 5): Promise<NotionPage[]> {
-    const settings = await SettingsService.getSettings()
-    if (!settings?.notionDatabaseId) {
-      throw new Error('Notion database ID not found')
-    }
-
+    const databaseId = await this.validateDatabaseAccess()
     const notion = await this.getClient()
-    const response = await notion.databases.query({
-      database_id: settings.notionDatabaseId,
+
+    const { results } = await notion.databases.query({
+      database_id: databaseId,
       page_size: limit,
-      sorts: [
-        {
-          timestamp: 'last_edited_time',
-          direction: 'descending'
-        }
-      ]
+      sorts: [{ timestamp: 'last_edited_time', direction: 'descending' }]
     })
 
-    return Promise.all(response.results.map(async page => {
-      const pageObject = page as PageObjectResponse
-      const links = await this.getLinks(page.id)
-      
-      return {
-        id: page.id,
-        title: (pageObject.properties.Name as any)?.title?.[0]?.plain_text || 'Untitled',
-        url: pageObject.url,
-        lastEdited: pageObject.last_edited_time,
-        links
-      }
-    }))
+    return Promise.all(
+      results.map(async (page) => {
+        const pageObject = page as PageObjectResponse
+        const pageData = this.extractPageData(pageObject)
+        const links = await this.extractLinksFromPage(page.id)
+        
+        return { ...pageData, links }
+      })
+    )
   }
 
-  static async getDatabasePages() {
-    const settings = await SettingsService.getSettings()
-    if (!settings?.notionDatabaseId) {
-      throw new Error('Notion database ID not found')
-    }
-
+  static async syncDatabase() {
+    const databaseId = await this.validateDatabaseAccess()
     const notion = await this.getClient()
-    const response = await notion.databases.query({
-      database_id: settings.notionDatabaseId,
+    
+    const { results } = await notion.databases.query({
+      database_id: databaseId,
     })
 
-    return response.results
-  }
-
-  static async syncNotionToLocal() {
-    const pages = await this.getDatabasePages()
-    // TODO: Implement syncing logic to convert Notion pages to local notes
-    return pages
+    // TODO: Implement syncing logic
+    return results
   }
 } 
